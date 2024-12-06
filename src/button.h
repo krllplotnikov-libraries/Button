@@ -1,7 +1,7 @@
 #ifndef BUTTON_H_
 #define BUTTON_H_
 
-#include <stdio.h>
+#include <stdint.h>
 #include <string.h>
 
 #define BUTTON_DEBOUNCE_TRESHOLD_MS          25
