@@ -1,7 +1,7 @@
 #include "Button.h"
 
 static void Debounce(Button_st* button){
-	button->debounceDescriptor.currentState = button->userFunctions.getPinLevel(button);
+	button->debounceDescriptor.currentState = button->userFunctions.getState(button);
 
 	if(button->debounceDescriptor.currentState != button->debounceDescriptor.previousState){
 		button->debounceDescriptor.previousState = button->debounceDescriptor.currentState;
@@ -100,7 +100,7 @@ static void MakeEvent(Button_st* button){
 
 
 void Button_Init(Button_st* button, ButtonUserFunctions_st* userFunctions){
-	button->userFunctions.getPinLevel = userFunctions->getPinLevel;
+	button->userFunctions.getState = userFunctions->getState;
 	button->userFunctions.getTick = userFunctions->getTick;
 	button->userFunctions.eventCallback = userFunctions->eventCallback;
 	button->stateDescriptor.currentState = BUTTON_STATE_RELEASED;

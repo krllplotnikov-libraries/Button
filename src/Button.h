@@ -9,20 +9,6 @@
 #define BUTTON_HOLDED_TIMEOUT_MS              1000
 #define BUTTON_EVENT_DESCRIPTOR_RESET_TIMEOUT 300
 
-typedef enum ButtonEvent ButtonEvent_et;
-typedef enum ButtonState ButtonState_et;
-typedef enum PinLevel PinLevel_et;
-
-typedef struct Button Button_st;
-typedef struct ButtonEventDescriptor ButtonEventDescriptor_st;
-typedef struct ButtonStateDescriptor ButtonStateDescriptor_st;
-typedef struct ButtonDebounceDescriptor ButtonDebounceDescriptor_st;
-typedef struct ButtonUserFunctions ButtonUserFunctions_st;
-
-typedef void (*EventCallback)(Button_st* button, ButtonEvent_et event);
-typedef PinLevel_et (*GetPinLevel)(Button_st* button);
-typedef uint32_t (*GetTick)();
-
 enum ButtonEvent{
 	BUTTON_EVENT_NONE,
 	BUTTON_EVENT_CLICK,
@@ -38,10 +24,20 @@ enum ButtonState{
 	BUTTON_STATE_PRESSED
 };
 
-enum PinLevel{
-	PIN_RESET,
-	PIN_SET
-};
+typedef enum ButtonEvent ButtonEvent_et;
+typedef enum ButtonState ButtonState_et;
+
+typedef struct Button Button_st;
+typedef struct ButtonEventDescriptor ButtonEventDescriptor_st;
+typedef struct ButtonStateDescriptor ButtonStateDescriptor_st;
+typedef struct ButtonDebounceDescriptor ButtonDebounceDescriptor_st;
+typedef struct ButtonUserFunctions ButtonUserFunctions_st;
+
+typedef void (*ButtonEventCallback)(Button_st* button, ButtonEvent_et event);
+typedef ButtonState_et (*ButtonGetState_et)(Button_st* button);
+typedef uint32_t (*GetTick)();
+
+
 
 struct ButtonEventDescriptor{
 	uint8_t pressCount           : 2;
@@ -67,10 +63,10 @@ struct ButtonStateDescriptor{
 };
 
 struct ButtonUserFunctions{
-	GetPinLevel getPinLevel;
+	ButtonGetState_et getState;
 	GetTick getTick;
 
-	EventCallback eventCallback;
+	ButtonEventCallback eventCallback;
 };
 
 struct Button{
