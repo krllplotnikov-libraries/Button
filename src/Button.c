@@ -79,6 +79,7 @@ static void MakeEvent(Button_st* button){
 		button->userFunctions.eventCallback(button, BUTTON_EVENT_HOLD);
 		button->eventDescriptor.holdReady = 0;
 		button->eventDescriptor.holdCompleted = 1;
+		*(uint16_t*)&button->eventDescriptor = 0;
 	}
 
 	else if(button->eventDescriptor.holdedReady){
