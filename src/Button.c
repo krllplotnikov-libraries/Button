@@ -18,26 +18,26 @@ static void Debounce(Button_st* button){
 
 static void Update(Button_st* button){
 	if(button->stateDescriptor.previousState != button->stateDescriptor.currentState){
-		if(button->stateDescriptor.currentState == BUTTON_STATE_PRESSED && button->eventDescriptor.finish == 0){
+		if(button->stateDescriptor.currentState == BUTTON_STATE_PRESSED && button->eventDescriptor.eventFinish == 0){
 			button->eventDescriptor.pressCount++;
 		}
-		else if(button->stateDescriptor.currentState == BUTTON_STATE_RELEASED && button->eventDescriptor.finish == 0){
+		else if(button->stateDescriptor.currentState == BUTTON_STATE_RELEASED && button->eventDescriptor.eventFinish == 0){
 			button->eventDescriptor.releaseCount++;
 		}
-		else if(button->stateDescriptor.currentState == BUTTON_STATE_RELEASED && button->eventDescriptor.finish == 1){
+		else if(button->stateDescriptor.currentState == BUTTON_STATE_RELEASED && button->eventDescriptor.eventFinish == 1){
 			*(uint16_t*)&button->eventDescriptor = 0;
 		}
 			
 		button->stateDescriptor.previousState = button->stateDescriptor.currentState;
 	}
 
-	if(button->userFunctions.getTick() > button->stateDescriptor.changeTime + BUTTON_EVENT_DESCRIPTOR_FINISH_TIMEOUT && *(uint16_t*)&button->eventDescriptor != 0){
-		button->eventDescriptor.finish = 1;
+	if(button->userFunctions.getTick() > button->stateDescriptor.changeTime + BUTTON_EVENT_FINISH_TIMEOUT && *(uint16_t*)&button->eventDescriptor != 0){
+		button->eventDescriptor.eventFinish = 1;
 	}
 }
 
 static void Event(Button_st* button){
-	if(button->eventDescriptor.finish){
+	if(button->eventDescriptor.eventFinish){
 		if(button->eventDescriptor.pressCount == button->eventDescriptor.releaseCount){
 			button->eventDescriptor.eventCount = button->eventDescriptor.pressCount
 			button->userFunctions.eventCallback(button, BUTTON_EVENT_CLICK, button->eventDescriptor.eventCount);
@@ -46,7 +46,7 @@ static void Event(Button_st* button){
 			button->eventDescriptor.eventCount++;
 			button->userFunctions.eventCallback(button, BUTTON_EVENT_HOLD, button->eventDescriptor.eventCount);
 			button->stateDescriptor.changeTime = button->userFunctions.getTick();
-			button->eventDescriptor.finish = 0;
+			button->eventDescriptor.eventFinish = 0;
 		}
 		else{
 			*(uint16_t*)&button->eventDescriptor = 0;

@@ -3,8 +3,8 @@
 
 #include <stdint.h>
 
-#define BUTTON_DEBOUNCE_TIME_MS                5
-#define BUTTON_EVENT_DESCRIPTOR_FINISH_TIMEOUT 250
+#define BUTTON_DEBOUNCE_TIME_MS     5
+#define BUTTON_EVENT_FINISH_TIMEOUT 250
 
 typedef enum ButtonEvent ButtonEvent_et;
 typedef enum ButtonState ButtonState_et;
@@ -16,14 +16,12 @@ typedef struct ButtonUserFunctions   ButtonUserFunctions_st;
 
 typedef void           (*ButtonEventCallback) (Button_st* button, ButtonEvent_et event, uint8_t counter);
 typedef ButtonState_et (*ButtonGetState)      (Button_st* button);
-typedef uint32_t       (*GetTick)             ();
+typedef uint32_t       (*ButtonGetTick)       ();
 
 enum ButtonEvent{
 	BUTTON_EVENT_NONE,
 	BUTTON_EVENT_CLICK,
 	BUTTON_EVENT_HOLD,
-	BUTTON_EVENT_PRESSED,
-	BUTTON_EVENT_RELEASED
 };
 
 enum ButtonState{
@@ -46,7 +44,7 @@ struct ButtonStateDescriptor{
 
 struct ButtonUserFunctions{
 	ButtonGetState      getState;
-	GetTick             getTick;
+	ButtonGetTick       getTick;
 	ButtonEventCallback eventCallback;
 };
 
