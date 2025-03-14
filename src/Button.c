@@ -8,9 +8,10 @@ static void Debounce(Button_st* button){
 		button->debounceDescriptor.changeTime = button->userFunctions.getTick();
 	}
 
-	else if(button->debounceDescriptor.currentState == button->debounceDescriptor.previousState &&
-			button->stateDescriptor.changeTime != button->debounceDescriptor.changeTime &&
-			button->userFunctions.getTick() > button->debounceDescriptor.changeTime + BUTTON_DEBOUNCE_TIME_MS){
+	else if(button->debounceDescriptor.currentState == button->debounceDescriptor.previousState
+			&& button->userFunctions.getTick() > button->debounceDescriptor.changeTime + BUTTON_DEBOUNCE_TIME_MS
+			&& button->stateDescriptor.currentState != button->debounceDescriptor.currentState
+			&& button->stateDescriptor.changeTime != button->debounceDescriptor.changeTime){
 		button->stateDescriptor.currentState = button->debounceDescriptor.currentState;
 		button->stateDescriptor.changeTime = button->debounceDescriptor.changeTime;
 	}
@@ -24,22 +25,26 @@ static void Update(Button_st* button){
 		else if(button->stateDescriptor.currentState == BUTTON_STATE_RELEASED && button->eventDescriptor.eventFinish == 0){
 			button->eventDescriptor.releaseCount++;
 		}
-		else if(button->stateDescriptor.currentState == BUTTON_STATE_RELEASED && button->eventDescriptor.eventFinish == 1){
-			*(uint16_t*)&button->eventDescriptor = 0;
-		}
 			
 		button->stateDescriptor.previousState = button->stateDescriptor.currentState;
 	}
 
-	if(button->userFunctions.getTick() > button->stateDescriptor.changeTime + BUTTON_EVENT_FINISH_TIMEOUT && *(uint16_t*)&button->eventDescriptor != 0){
+	if(button->stateDescriptor.currentState == BUTTON_STATE_RELEASED && button->eventDescriptor.eventFinish == 1){
+		*(uint16_t*)&button->eventDescriptor = 0;
+	}
+
+	if((button->userFunctions.getTick() > button->stateDescriptor.changeTime + BUTTON_EVENT_FINISH_TIMEOUT) && *(uint16_t*)&button->eventDescriptor != 0){
 		button->eventDescriptor.eventFinish = 1;
 	}
 }
 
 static void Event(Button_st* button){
 	if(button->eventDescriptor.eventFinish){
-		if(button->eventDescriptor.pressCount == button->eventDescriptor.releaseCount){
-			button->eventDescriptor.eventCount = button->eventDescriptor.pressCount
+		if(button->eventDescriptor.pressCount == button->eventDescriptor.releaseCount
+				&& button->eventDescriptor.pressCount > 0
+				&& button->eventDescriptor.releaseCount > 0
+				&& button->eventDescriptor.eventCount == 0){
+			button->eventDescriptor.eventCount = button->eventDescriptor.pressCount;
 			button->userFunctions.eventCallback(button, BUTTON_EVENT_CLICK, button->eventDescriptor.eventCount);
 		}
 		else if(button->eventDescriptor.pressCount > button->eventDescriptor.releaseCount){
