@@ -14,6 +14,13 @@ static void Debounce(Button_st* button){
 			&& button->stateDescriptor.changeTime != button->debounceDescriptor.changeTime){
 		button->stateDescriptor.currentState = button->debounceDescriptor.currentState;
 		button->stateDescriptor.changeTime = button->debounceDescriptor.changeTime;
+
+		if(button->stateDescriptor.currentState == BUTTON_STATE_PRESSED){
+			button->userFunctions.eventCallback(button, BUTTON_EVENT_PRESS, 1);
+		}
+		else{
+			button->userFunctions.eventCallback(button, BUTTON_EVENT_RELEASE, 1);
+		}
 	}
 }
 
