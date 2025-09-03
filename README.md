@@ -211,4 +211,109 @@ void main(){
 	}
 }
 ```
+
+- ESP32
+```C
+#include "driver/gpio.h"
+#include "esp_timer.h"
+#include "freertos/FreeRTOS.h"
+
+#include "Button.h"
+
+#define BUTTON_LEFT_GPIO_NUM GPIO_NUM_9
+#define BUTTON_RIGHT_GPIO_NUM GPIO_NUM_10
+
+gpio_config_t button_gpio_conf = {
+  .mode = GPIO_MODE_INPUT,
+  .pull_up_en = GPIO_PULLUP_ENABLE,
+  .pin_bit_mask = ((1ULL << BUTTON_LEFT_GPIO_NUM) | (1ULL << BUTTON_RIGHT_GPIO_NUM))
+};
+
+ButtonState_et GetState_Button(Button_st* button);
+uint32_t GetTick_Button();
+void EventCallback_Button(Button_st* button, ButtonEvent_et event, uint8_t counter);
+
+Button_st buttonLeft = {0};
+Button_st buttonRight = {0};
+
+ButtonUserFunctions_st buttonUserFunctions = {
+		.getState = GetState_Button,
+		.getTick = GetTick_Button,
+		.eventCallback = EventCallback_Button
+};
+
+ButtonState_et GetState_Button(Button_st* button){
+	if(button == &buttonLeft){
+		return (ButtonState_et)!gpio_get_level(BUTTON_LEFT_GPIO_NUM);
+	}
+	
+	if(button == &buttonRight){
+		return (ButtonState_et)!gpio_get_level(BUTTON_RIGHT_GPIO_NUM);
+	}
+
+	return BUTTON_STATE_RELEASED;
+}
+
+uint32_t GetTick_Button(){
+	return esp_timer_get_time() / 1000;
+}
+
+void EventCallback_Button(Button_st* button, ButtonEvent_et event, uint8_t counter){
+	if(button == &buttonLeft){
+		if(event == BUTTON_EVENT_CLICK){
+			if(counter == 1){
+				//Одиночный клик
+			}
+			if(counter == 2){
+				//Двойной клик
+			}
+		}
+		if(event == BUTTON_EVENT_HOLD){
+			if(counter == 4){
+				//удержание кнопки 1 секунду
+			}
+			if(counter == 10){
+				//удержание кнопки 2.5 секунды
+			}
+		}
+	}
+
+	if(button == &buttonRight){
+		if(event == BUTTON_EVENT_CLICK){
+			if(counter == 1){
+				//Одиночный клик
+			}
+			if(counter == 2){
+				//Двойной клик
+			}
+		}
+		if(event == BUTTON_EVENT_HOLD){
+			if(counter == 4){
+				//удержание кнопки 1 секунду
+			}
+			if(counter == 10){
+				//удержание кнопки 2.5 секунды
+			}
+		}
+	}
+}
+
+void Button_Task(){
+	while(1){
+		Button_Run(&buttonLeft);
+		Button_Run(&buttonRight);
+		vTaskDelay(pdMS_TO_TICKS(1));
+	}
+}
+
+void app_main(void)
+{
+	gpio_config(&button_gpio_conf);
+	
+	Button_Init(&buttonLeft, &buttonUserFunctions);
+	Button_Init(&buttonRight, &buttonUserFunctions);
+	
+	xTaskCreate(Button_Task, NULL, 1024, NULL, 0, NULL);
+}
+```
 ____
