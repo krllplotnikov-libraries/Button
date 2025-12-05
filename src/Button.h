@@ -6,18 +6,6 @@
 #define BUTTON_DEBOUNCE_TIME_MS     5
 #define BUTTON_EVENT_FINISH_TIMEOUT 250
 
-typedef enum ButtonEvent ButtonEvent_et;
-typedef enum ButtonState ButtonState_et;
-
-typedef struct Button                Button_st;
-typedef struct ButtonEventDescriptor ButtonEventDescriptor_st;
-typedef struct ButtonStateDescriptor ButtonStateDescriptor_st;
-typedef struct ButtonUserFunctions   ButtonUserFunctions_st;
-
-typedef void           (*ButtonEventCallback) (Button_st* button, ButtonEvent_et event, uint8_t counter);
-typedef ButtonState_et (*ButtonGetState)      (Button_st* button);
-typedef uint32_t       (*ButtonGetTick)       ();
-
 enum ButtonEvent{
 	BUTTON_EVENT_NONE,
 	BUTTON_EVENT_CLICK,
@@ -30,6 +18,18 @@ enum ButtonState{
 	BUTTON_STATE_RELEASED,
 	BUTTON_STATE_PRESSED
 };
+
+typedef enum ButtonEvent ButtonEvent_et;
+typedef enum ButtonState ButtonState_et;
+
+typedef struct Button                Button_st;
+typedef struct ButtonEventDescriptor ButtonEventDescriptor_st;
+typedef struct ButtonStateDescriptor ButtonStateDescriptor_st;
+typedef struct ButtonUserFunctions   ButtonUserFunctions_st;
+
+typedef void           (*ButtonEventCallback) (Button_st* button, ButtonEvent_et event, uint8_t counter);
+typedef ButtonState_et (*ButtonGetState)      (Button_st* button);
+typedef uint32_t       (*ButtonGetTick)       ();
 
 struct ButtonEventDescriptor{
 	uint16_t pressCount           : 4;
