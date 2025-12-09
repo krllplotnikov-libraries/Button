@@ -1,12 +1,11 @@
 #include <gtest/gtest.h>
-#include <iostream>
 
 #include "Button.h"
-
 
 uint32_t tick = 0;
 ButtonState_et pinState = BUTTON_STATE_RELEASED;
 ButtonEvent_et buttonEvent = BUTTON_EVENT_NONE;
+uint8_t buttonEventCount = 0;
 
 void IncTick(uint32_t ticks){
     tick += ticks;
@@ -37,6 +36,7 @@ ButtonUserFunctions_st button0UserFunctions = {
 
 void Button_EventCallback(Button_st* button, ButtonEvent_et event, uint8_t counter){
     if(button == &button0){
+        buttonEventCount = counter;
         if(event == BUTTON_EVENT_PRESS){
             buttonEvent = BUTTON_EVENT_PRESS;
         }
@@ -132,6 +132,79 @@ TEST(ClickTest, BasicTest)
         Button_Run(&button0);
         ASSERT_EQ(buttonEvent, BUTTON_EVENT_NONE);
     }       
+}
+
+TEST(HoldTest, BasicTest)
+{
+    uint8_t expectedEventCounter = 0;
+
+    SetPinState(BUTTON_STATE_RELEASED);
+
+    Button_Init(&button0, &button0UserFunctions);
+    Button_Run(&button0);
+
+    for(uint32_t i = 0; i < 10; i++){
+        IncTick(1);
+        Button_Run(&button0);
+        ASSERT_EQ(buttonEvent, BUTTON_EVENT_NONE);
+    }
+
+    SetPinState(BUTTON_STATE_PRESSED);
+
+    for(uint32_t i = 0; i <= BUTTON_DEBOUNCE_TIME_MS; i++){
+        IncTick(1);
+        Button_Run(&button0);
+        ASSERT_EQ(buttonEvent, BUTTON_EVENT_NONE);
+    }
+
+    IncTick(1);
+    Button_Run(&button0);
+
+    ASSERT_EQ(buttonEvent, BUTTON_EVENT_PRESS);
+
+    for(uint32_t i = 0; i < BUTTON_EVENT_FINISH_TIMEOUT - BUTTON_DEBOUNCE_TIME_MS - 1; i++){
+        IncTick(1);
+        Button_Run(&button0);
+        ASSERT_EQ(buttonEvent, BUTTON_EVENT_PRESS);
+    }
+
+    IncTick(1);
+    Button_Run(&button0);
+
+    ASSERT_EQ(buttonEvent, BUTTON_EVENT_HOLD);
+
+    expectedEventCounter++;
+    ASSERT_EQ(expectedEventCounter, buttonEventCount);
+
+    for(uint32_t j = 0; j < 100; j++){
+        for(uint32_t i = 0; i < BUTTON_EVENT_FINISH_TIMEOUT + 1; i++){
+            IncTick(1);
+            Button_Run(&button0);
+            ASSERT_EQ(buttonEvent, BUTTON_EVENT_HOLD);
+        }
+        expectedEventCounter++;
+        ASSERT_EQ(expectedEventCounter, buttonEventCount);
+    }
+
+    SetPinState(BUTTON_STATE_RELEASED);
+
+    for(uint32_t i = 0; i <= BUTTON_DEBOUNCE_TIME_MS; i++){
+        IncTick(1);
+        Button_Run(&button0);
+        ASSERT_EQ(buttonEvent, BUTTON_EVENT_HOLD);
+    }
+
+    IncTick(1);
+    Button_Run(&button0);
+
+    ASSERT_EQ(buttonEvent, BUTTON_EVENT_RELEASE);
+
+    buttonEvent = BUTTON_EVENT_NONE;
+    for(uint32_t i = 0; i < 500; i++){
+        IncTick(1);
+        Button_Run(&button0);
+        ASSERT_EQ(buttonEvent, BUTTON_EVENT_NONE);
+    }
 }
 
 int main(int argc, char **argv)
