@@ -218,6 +218,20 @@ TEST(DebounceTest, IntegrationTest)
     ASSERT_EQ(result.counter, 0);
 }
 
+TEST(HoldBeforeTurnOnTest, IntegrationTest)
+{
+    Button_Init(&button0, &buttonUserFunctions);
+
+    Simulate_Press(&entityButton0, &MCU, &button0, 1);
+    Simulate_Init(&entityButton0, &MCU, &button0, 1);
+
+    Simulate_Press(&entityButton0, &MCU, &button0, BUTTON_EVENT_FINISH_TIMEOUT * 2);
+
+    ASSERT_EQ(result.button, &button0);
+    ASSERT_EQ(result.event, BUTTON_EVENT_HOLD);
+    ASSERT_EQ(result.counter, 2);
+}
+
 /*--------------------------------------------------------------------------------
                         Boundary Tests
 --------------------------------------------------------------------------------*/
