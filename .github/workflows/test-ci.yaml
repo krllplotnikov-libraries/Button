@@ -1,0 +1,21 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [master, docker-test]
+  pull_request:
+    branches: [master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t button-test .
+
+      - name: Run tests
+        run: docker run --rm button-test
