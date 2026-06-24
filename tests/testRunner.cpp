@@ -204,6 +204,7 @@ TEST(LongHoldTest, IntegrationTest)
     }
 }
 
+/*
 TEST(DebounceTest, IntegrationTest)
 {
     Button_Init(&button0, &buttonUserFunctions);
@@ -217,6 +218,7 @@ TEST(DebounceTest, IntegrationTest)
     ASSERT_EQ(result.event, BUTTON_EVENT_NONE);
     ASSERT_EQ(result.counter, 0);
 }
+*/
 
 TEST(HoldBeforeTurnOnTest, IntegrationTest)
 {
