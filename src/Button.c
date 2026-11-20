@@ -1,25 +1,25 @@
 #include "Button.h"
 
 static void Debounce(Button_st* button){
-	button->debounceDescriptor.currentState = button->userFunctions.getState(button);
+	button->debounceDescriptor.currentState = button->descriptor.getState(button);
 
 	if(button->debounceDescriptor.currentState != button->debounceDescriptor.previousState){
 		button->debounceDescriptor.previousState = button->debounceDescriptor.currentState;
-		button->debounceDescriptor.changeTime = button->userFunctions.getTick();
+		button->debounceDescriptor.changeTime = button->descriptor.getTick();
 	}
 
 	else if(button->debounceDescriptor.currentState == button->debounceDescriptor.previousState
-			&& button->userFunctions.getTick() > button->debounceDescriptor.changeTime + BUTTON_DEBOUNCE_TIME_MS
+			&& button->descriptor.getTick() > button->debounceDescriptor.changeTime + BUTTON_DEBOUNCE_TIME_MS
 			&& button->stateDescriptor.currentState != button->debounceDescriptor.currentState
 			&& button->stateDescriptor.changeTime != button->debounceDescriptor.changeTime){
 		button->stateDescriptor.currentState = button->debounceDescriptor.currentState;
 		button->stateDescriptor.changeTime = button->debounceDescriptor.changeTime;
 
 		if(button->stateDescriptor.currentState == BUTTON_STATE_PRESSED){
-			button->userFunctions.eventCallback(button, BUTTON_EVENT_PRESS, 1);
+			button->descriptor.eventCallback(button, BUTTON_EVENT_PRESS, 1);
 		}
 		else{
-			button->userFunctions.eventCallback(button, BUTTON_EVENT_RELEASE, 1);
+			button->descriptor.eventCallback(button, BUTTON_EVENT_RELEASE, 1);
 		}
 	}
 }
@@ -40,7 +40,7 @@ static void Update(Button_st* button){
 		*(uint16_t*)&button->eventDescriptor = 0;
 	}
 
-	if((button->userFunctions.getTick() > button->stateDescriptor.changeTime + BUTTON_EVENT_FINISH_TIMEOUT) && *(uint16_t*)&button->eventDescriptor != 0){
+	if((button->descriptor.getTick() > button->stateDescriptor.changeTime + BUTTON_EVENT_FINISH_TIMEOUT) && *(uint16_t*)&button->eventDescriptor != 0){
 		button->eventDescriptor.eventFinish = 1;
 	}
 }
@@ -52,12 +52,12 @@ static void Event(Button_st* button){
 				&& button->eventDescriptor.releaseCount > 0
 				&& button->eventDescriptor.eventCount == 0){
 			button->eventDescriptor.eventCount = button->eventDescriptor.pressCount;
-			button->userFunctions.eventCallback(button, BUTTON_EVENT_CLICK, button->eventDescriptor.eventCount);
+			button->descriptor.eventCallback(button, BUTTON_EVENT_CLICK, button->eventDescriptor.eventCount);
 		}
 		else if(button->eventDescriptor.pressCount > button->eventDescriptor.releaseCount){
 			button->eventDescriptor.eventCount++;
-			button->userFunctions.eventCallback(button, BUTTON_EVENT_HOLD, button->eventDescriptor.eventCount);
-			button->stateDescriptor.changeTime = button->userFunctions.getTick();
+			button->descriptor.eventCallback(button, BUTTON_EVENT_HOLD, button->eventDescriptor.eventCount);
+			button->stateDescriptor.changeTime = button->descriptor.getTick();
 			button->eventDescriptor.eventFinish = 0;
 		}
 		else{
@@ -67,10 +67,10 @@ static void Event(Button_st* button){
 }
 
 
-void Button_Init(Button_st* button, ButtonUserFunctions_st* userFunctions){
-	button->userFunctions.getState = userFunctions->getState;
-	button->userFunctions.getTick = userFunctions->getTick;
-	button->userFunctions.eventCallback = userFunctions->eventCallback;
+void Button_Init(Button_st* button, ButtonDescriptor_st* descriptor){
+	button->descriptor.getState = descriptor->getState;
+	button->descriptor.getTick = descriptor->getTick;
+	button->descriptor.eventCallback = descriptor->eventCallback;
 	button->stateDescriptor.currentState = BUTTON_STATE_RELEASED;
 	button->stateDescriptor.previousState = BUTTON_STATE_RELEASED;
 	button->debounceDescriptor.currentState = BUTTON_STATE_RELEASED;

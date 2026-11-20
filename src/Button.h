@@ -27,7 +27,7 @@ typedef enum ButtonState ButtonState_et;
 typedef struct Button                Button_st;
 typedef struct ButtonEventDescriptor ButtonEventDescriptor_st;
 typedef struct ButtonStateDescriptor ButtonStateDescriptor_st;
-typedef struct ButtonUserFunctions   ButtonUserFunctions_st;
+typedef struct ButtonDescriptor      ButtonDescriptor_st;
 
 typedef void           (*ButtonEventCallback) (Button_st* button, ButtonEvent_et event, uint8_t counter);
 typedef ButtonState_et (*ButtonGetState)      (Button_st* button);
@@ -46,14 +46,15 @@ struct ButtonStateDescriptor{
 	uint32_t       changeTime;
 };
 
-struct ButtonUserFunctions{
+struct ButtonDescriptor{
 	ButtonGetState      getState;
 	ButtonGetTick       getTick;
 	ButtonEventCallback eventCallback;
+	void* context;
 };
 
 struct Button{
-	ButtonUserFunctions_st   userFunctions;
+	ButtonDescriptor_st   descriptor;
 	ButtonEventDescriptor_st eventDescriptor;
 	ButtonStateDescriptor_st stateDescriptor;
 	ButtonStateDescriptor_st debounceDescriptor;
@@ -63,7 +64,7 @@ struct Button{
 extern "C" {
 #endif
 
-void Button_Init(Button_st* button, ButtonUserFunctions_st* userFunctions);
+void Button_Init(Button_st* button, ButtonDescriptor_st* descriptor);
 void Button_Run(Button_st* button);
 
 #ifdef __cplusplus
