@@ -78,6 +78,10 @@ void Button_Init(Button_st* button, ButtonDescriptor_st* descriptor){
 	*(uint16_t*)&button->eventDescriptor = 0;
 }
 
+void Button_SetEventCallback(Button_st* button, ButtonEventCallback eventCallback){
+	button->descriptor.eventCallback = eventCallback;
+}
+
 void Button_Run(Button_st* button){
 	Debounce(button);
 	Update(button);

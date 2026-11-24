@@ -65,6 +65,7 @@ extern "C" {
 #endif
 
 void Button_Init(Button_st* button, ButtonDescriptor_st* descriptor);
+void Button_SetEventCallback(Button_st* button, ButtonEventCallback eventCallback);
 void Button_Run(Button_st* button);
 
 #ifdef __cplusplus
