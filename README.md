@@ -21,37 +21,40 @@ ____
 - Обработка событий через callback функцию
 - Обработка произвольного количества нажатий
 - Обработка удержания любой длительности
+- Корректная работа при переполнении счётчика тиков
 - Не используются прерывания
 - Не используются weak функции
 ____
 
 ## Типы данных
 ```C
-//структура для создания экземпляра кнопки
+//структура экземпляра кнопки
 struct Button_st;
 
-//структура для определения пользовательских функций
-struct ButtonUserFunctions_st;
+//дескриптор кнопки: аппаратные функции, callback и context
+struct Button_Descriptor_st;
 
-//перечесление состояний кнопки
-enum ButtonState_et; 
+//перечисление состояний кнопки
+enum Button_State_et;
 
-//перечесление событий взаимодейсвия с кнопкой
-enum ButtonEvent_et; 
+//перечисление событий взаимодействия с кнопкой
+enum Button_Event_et;
 
-//указатель на функцию обратного вызова на событие взаимодейсвия с кнопкой
-//Button_st* button - указатель на экземпляра структуры кнопки
-//ButtonEvent_et event - событие взаимодейсвия с кнопкой
-//uint8_t counter - количество повторений события event
-void (*ButtonEventCallback) (Button_st* button, ButtonEvent_et event, uint8_t counter); 
+//указатель на функцию обратного вызова на событие взаимодействия с кнопкой
+//Button_st* _button      - указатель на экземпляр кнопки
+//Button_Event_et _event  - событие взаимодействия с кнопкой
+//uint8_t _counter        - количество повторений события _event
+typedef void (*Button_EventCallback)(Button_st* _button, Button_Event_et _event, uint8_t _counter);
 
 //указатель на функцию для получения состояния кнопки
-//Button_st* button - указатель на экземпляра структуры кнопки
-ButtonState_et (*ButtonGetState) (Button_st* button); 
+//Button_st* _button - указатель на экземпляр кнопки
+typedef Button_State_et (*Button_GetState)(Button_st* _button);
 
 //указатель на функцию для получения времени в миллисекундах с момента запуска
-uint32_t (*ButtonGetTick) (); 
+typedef uint32_t (*Button_GetTick)(void);
 ```
+
+Поле `context` дескриптора — непрозрачный указатель на объект-подписчик. Библиотека хранит его, но не разыменовывает; обработчик события получает его через `_button->descriptor.context`.
 ____
 
 ## Использование
@@ -64,68 +67,78 @@ ____
 ```C
 Button_st buttonLeft = {0};
 ```
-4) Определить три функции: получение времени в миллисекундах с момента запуска; получение состояния кнопки; обратный вызов на событие взаимодейсвия с кнопкой
+4) Определить три функции: получение времени в миллисекундах с момента запуска; получение состояния кнопки; обратный вызов на событие взаимодействия с кнопкой
 ```C
-uint32_t GetTick_Button(){
+static uint32_t getTick(void){
 	//Необходимо вернуть значение времени в миллисекундах
 	return HAL_GetTick();
 }
 
-ButtonState_et GetState_Button(Button_st* button){
-	if(button == &buttonLeft){
-		//Необходимо вернуть текущее состояния кнопки, в зависимости от логического уровня на пине к которому подключена кнопка
-		return (ButtonState_et)!HAL_GPIO_ReadPin(BUTTON_LEFT_GPIO_Port, BUTTON_LEFT_Pin);
+static Button_State_et getButtonState(Button_st* _button){
+	if(_button == &buttonLeft){
+		//Необходимо вернуть текущее состояние кнопки, в зависимости от логического уровня на пине, к которому подключена кнопка
+		return (Button_State_et)!HAL_GPIO_ReadPin(BUTTON_LEFT_GPIO_Port, BUTTON_LEFT_Pin);
 	}
 
 	return BUTTON_STATE_RELEASED;
 }
 
-void EventCallback_Button(Button_st* button, ButtonEvent_et event, uint8_t counter){
-	if(button == &buttonLeft){
-		if(event == BUTTON_EVENT_CLICK){
-			if(counter == 1){
-				//Одиночный клик
-			}
-			if(counter == 2){
-				//Двойной клик
-			}
+static void buttonEvent(Button_st* _button, Button_Event_et _event, uint8_t _counter){
+	switch(_event){
+	case BUTTON_EVENT_CLICK:{
+		if(_counter == 1){
+			//Одиночный клик
 		}
-		if(event == BUTTON_EVENT_HOLD){
-			if(counter == 4){
-				//удержание кнопки 1 секунду
-			}
-			if(counter == 10){
-				//удержание кнопки 2.5 секунды
-			}
+		else if(_counter == 2){
+			//Двойной клик
 		}
+		break;
+	}
+
+	case BUTTON_EVENT_HOLD:{
+		if(_counter == 4){
+			//Удержание кнопки 1 секунду
+		}
+		else if(_counter == 10){
+			//Удержание кнопки 2.5 секунды
+		}
+		break;
+	}
+
+	default: break;
 	}
 }
 ```
-5) Создать экземпляр структуры ButtonUserFunctions_st и присвоить ранее объявленные функции
+5) Создать дескриптор Button_Descriptor_st и присвоить ранее объявленные функции
 ```C
-ButtonUserFunctions_st buttonUserFunctions = {
-		.getState = GetState_Button,
-		.getTick = GetTick_Button,
-		.eventCallback = EventCallback_Button
+Button_Descriptor_st buttonDescriptor = {
+	.getState      = getButtonState,
+	.getTick       = getTick,
+	.eventCallback = buttonEvent,
+	.context       = NULL,
 };
 ```
-6) Вызвать функцию инициализации кнопки Button_Init(), аргументами передать ссылку на экземпляр структуры кнопки и ссылку на структуру с указателями на функции
+6) Вызвать функцию инициализации кнопки Button_Init(), аргументами передать указатель на экземпляр кнопки и указатель на дескриптор
 ```C
-void main(){
-	Button_Init(&buttonLeft, &buttonUserFunctions);
-}
+Button_Init(&buttonLeft, &buttonDescriptor);
 ```
-7) В цикле вызывать функцию Button_Run(), аргументами передать ссылку на экземпляр структуры кнопки
+7) В цикле вызывать функцию Button_Run(), аргументом передать указатель на экземпляр кнопки
 ```C
 while(1){
 	Button_Run(&buttonLeft);
 }
 ```
-8) В EventCallback_Button() обрабатывать полученные события
+8) В buttonEvent() обрабатывать полученные события
+
+Если кнопка создана одним слоем (например, `Board`), а события обрабатывает другой (например, модуль), обработчик и `context` назначаются после инициализации:
+```C
+Button_SetEventCallback(&buttonLeft, buttonEvent, &moduleButton);
+```
 
 **ВАЖНО!**
 - Событие BUTTON_EVENT_CLICK имеет ограничение в 15 нажатий подряд
-- Событие BUTTON_EVENT_HOLD вызывается каждые 250 миллисекунд. Для определения длительности удержания кнопки необходимо значение counter умножить на 250
+- Событие BUTTON_EVENT_HOLD вызывается каждые 250 миллисекунд (BUTTON_EVENT_FINISH_TIMEOUT_MS). Для определения длительности удержания кнопки необходимо значение _counter умножить на 250
+- Если eventCallback равен NULL, события не передаются
 ____
 
 ## Примеры
@@ -133,78 +146,51 @@ ____
 ```C
 #include "Button.h"
 
-ButtonState_et GetState_Button(Button_st* button);
-uint32_t GetTick_Button();
-void EventCallback_Button(Button_st* button, ButtonEvent_et event, uint8_t counter);
+static uint32_t        getTick(void);
+static Button_State_et getButtonState(Button_st* _button);
+static void            buttonEvent(Button_st* _button, Button_Event_et _event, uint8_t _counter);
 
-Button_st buttonLeft = {0};
+Button_st buttonLeft  = {0};
 Button_st buttonRight = {0};
 
-ButtonUserFunctions_st buttonUserFunctions = {
-		.getState = GetState_Button,
-		.getTick = GetTick_Button,
-		.eventCallback = EventCallback_Button
+Button_Descriptor_st buttonDescriptor = {
+	.getState      = getButtonState,
+	.getTick       = getTick,
+	.eventCallback = buttonEvent,
+	.context       = NULL,
 };
 
-ButtonState_et GetState_Button(Button_st* button){
-	if(button == &buttonLeft){
-		return (ButtonState_et)!HAL_GPIO_ReadPin(BUTTON_LEFT_GPIO_Port, BUTTON_LEFT_Pin);
-	}
+static uint32_t getTick(void){
+	return HAL_GetTick();
+}
 
-	else if(button == &buttonRight){
-		return (ButtonState_et)!HAL_GPIO_ReadPin(BUTTON_RIGHT_GPIO_Port, BUTTON_RIGHT_Pin);
+static Button_State_et getButtonState(Button_st* _button){
+	if(_button == &buttonLeft){
+		return (Button_State_et)!HAL_GPIO_ReadPin(BUTTON_LEFT_GPIO_Port, BUTTON_LEFT_Pin);
+	}
+	else if(_button == &buttonRight){
+		return (Button_State_et)!HAL_GPIO_ReadPin(BUTTON_RIGHT_GPIO_Port, BUTTON_RIGHT_Pin);
 	}
 
 	return BUTTON_STATE_RELEASED;
 }
 
-uint32_t GetTick_Button(){
-	return HAL_GetTick();
-}
-
-void EventCallback_Button(Button_st* button, ButtonEvent_et event, uint8_t counter){
-	if(button == &buttonLeft){
-		if(event == BUTTON_EVENT_CLICK){
-			if(counter == 1){
-				//Одиночный клик
-			}
-			if(counter == 2){
-				//Двойной клик
-			}
-		}
-		if(event == BUTTON_EVENT_HOLD){
-			if(counter == 4){
-				//удержание кнопки 1 секунду
-			}
-			if(counter == 10){
-				//удержание кнопки 2.5 секунды
-			}
+static void buttonEvent(Button_st* _button, Button_Event_et _event, uint8_t _counter){
+	if(_button == &buttonLeft){
+		if(_event == BUTTON_EVENT_CLICK && _counter == 2){
+			//Двойной клик левой кнопки
 		}
 	}
-
-	if(button == &buttonRight){
-		if(event == BUTTON_EVENT_CLICK){
-			if(counter == 1){
-				//Одиночный клик
-			}
-			if(counter == 2){
-				//Двойной клик
-			}
-		}
-		if(event == BUTTON_EVENT_HOLD){
-			if(counter == 4){
-				//удержание кнопки 1 секунду
-			}
-			if(counter == 10){
-				//удержание кнопки 2.5 секунды
-			}
+	else if(_button == &buttonRight){
+		if(_event == BUTTON_EVENT_HOLD && _counter == 4){
+			//Удержание правой кнопки 1 секунду
 		}
 	}
 }
 
-void main(){
-	Button_Init(&buttonLeft, &buttonUserFunctions);
-	Button_Init(&buttonRight, &buttonUserFunctions);
+int main(void){
+	Button_Init(&buttonLeft, &buttonDescriptor);
+	Button_Init(&buttonRight, &buttonDescriptor);
 
 	while(1){
 		Button_Run(&buttonLeft);
@@ -218,103 +204,77 @@ void main(){
 #include "driver/gpio.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 #include "Button.h"
 
-#define BUTTON_LEFT_GPIO_NUM GPIO_NUM_9
+#define BUTTON_LEFT_GPIO_NUM  GPIO_NUM_9
 #define BUTTON_RIGHT_GPIO_NUM GPIO_NUM_10
 
-gpio_config_t button_gpio_conf = {
-  .mode = GPIO_MODE_INPUT,
-  .pull_up_en = GPIO_PULLUP_ENABLE,
-  .pin_bit_mask = ((1ULL << BUTTON_LEFT_GPIO_NUM) | (1ULL << BUTTON_RIGHT_GPIO_NUM))
+static uint32_t        getTick(void);
+static Button_State_et getButtonState(Button_st* _button);
+static void            buttonEvent(Button_st* _button, Button_Event_et _event, uint8_t _counter);
+static void            buttonTask(void* _parameters);
+
+gpio_config_t buttonGpioConfig = {
+	.mode         = GPIO_MODE_INPUT,
+	.pull_up_en   = GPIO_PULLUP_ENABLE,
+	.pin_bit_mask = ((1ULL << BUTTON_LEFT_GPIO_NUM) | (1ULL << BUTTON_RIGHT_GPIO_NUM)),
 };
 
-ButtonState_et GetState_Button(Button_st* button);
-uint32_t GetTick_Button();
-void EventCallback_Button(Button_st* button, ButtonEvent_et event, uint8_t counter);
-
-Button_st buttonLeft = {0};
+Button_st buttonLeft  = {0};
 Button_st buttonRight = {0};
 
-ButtonUserFunctions_st buttonUserFunctions = {
-		.getState = GetState_Button,
-		.getTick = GetTick_Button,
-		.eventCallback = EventCallback_Button
+Button_Descriptor_st buttonDescriptor = {
+	.getState      = getButtonState,
+	.getTick       = getTick,
+	.eventCallback = buttonEvent,
+	.context       = NULL,
 };
 
-ButtonState_et GetState_Button(Button_st* button){
-	if(button == &buttonLeft){
-		return (ButtonState_et)!gpio_get_level(BUTTON_LEFT_GPIO_NUM);
+void app_main(void){
+	gpio_config(&buttonGpioConfig);
+
+	Button_Init(&buttonLeft, &buttonDescriptor);
+	Button_Init(&buttonRight, &buttonDescriptor);
+
+	xTaskCreate(buttonTask, "button", 2048, NULL, 1, NULL);
+}
+
+static uint32_t getTick(void){
+	return (uint32_t)(esp_timer_get_time() / 1000);
+}
+
+static Button_State_et getButtonState(Button_st* _button){
+	if(_button == &buttonLeft){
+		return (Button_State_et)!gpio_get_level(BUTTON_LEFT_GPIO_NUM);
 	}
-	
-	if(button == &buttonRight){
-		return (ButtonState_et)!gpio_get_level(BUTTON_RIGHT_GPIO_NUM);
+	else if(_button == &buttonRight){
+		return (Button_State_et)!gpio_get_level(BUTTON_RIGHT_GPIO_NUM);
 	}
 
 	return BUTTON_STATE_RELEASED;
 }
 
-uint32_t GetTick_Button(){
-	return esp_timer_get_time() / 1000;
-}
-
-void EventCallback_Button(Button_st* button, ButtonEvent_et event, uint8_t counter){
-	if(button == &buttonLeft){
-		if(event == BUTTON_EVENT_CLICK){
-			if(counter == 1){
-				//Одиночный клик
-			}
-			if(counter == 2){
-				//Двойной клик
-			}
-		}
-		if(event == BUTTON_EVENT_HOLD){
-			if(counter == 4){
-				//удержание кнопки 1 секунду
-			}
-			if(counter == 10){
-				//удержание кнопки 2.5 секунды
-			}
+static void buttonEvent(Button_st* _button, Button_Event_et _event, uint8_t _counter){
+	if(_button == &buttonLeft){
+		if(_event == BUTTON_EVENT_CLICK && _counter == 1){
+			//Одиночный клик левой кнопки
 		}
 	}
-
-	if(button == &buttonRight){
-		if(event == BUTTON_EVENT_CLICK){
-			if(counter == 1){
-				//Одиночный клик
-			}
-			if(counter == 2){
-				//Двойной клик
-			}
-		}
-		if(event == BUTTON_EVENT_HOLD){
-			if(counter == 4){
-				//удержание кнопки 1 секунду
-			}
-			if(counter == 10){
-				//удержание кнопки 2.5 секунды
-			}
+	else if(_button == &buttonRight){
+		if(_event == BUTTON_EVENT_HOLD && _counter == 10){
+			//Удержание правой кнопки 2.5 секунды
 		}
 	}
 }
 
-void Button_Task(){
+static void buttonTask(void* _parameters){
 	while(1){
 		Button_Run(&buttonLeft);
 		Button_Run(&buttonRight);
 		vTaskDelay(pdMS_TO_TICKS(1));
 	}
-}
-
-void app_main(void)
-{
-	gpio_config(&button_gpio_conf);
-	
-	Button_Init(&buttonLeft, &buttonUserFunctions);
-	Button_Init(&buttonRight, &buttonUserFunctions);
-	
-	xTaskCreate(Button_Task, NULL, 1024, NULL, 0, NULL);
 }
 ```
 ____
@@ -323,7 +283,7 @@ ____
 
 ```sh
 # Если не установлен Docker, установите его:
-sudo apt update && sudo apt isntall docker.io
+sudo apt update && sudo apt install docker.io
 
 # Создайте образ и запустите контейнер с тестами:
 docker build -t button_test .

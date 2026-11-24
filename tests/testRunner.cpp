@@ -18,7 +18,7 @@ typedef enum{
 }ButtonPull_et;
 
 typedef struct{
-    ButtonState_et state;
+    Button_State_et state;
     ButtonType_et type;
     ButtonPull_et pull;
 }EntityButton_st;
@@ -30,7 +30,7 @@ typedef struct{
 
 typedef struct{
     Button_st* button;
-    ButtonEvent_et event;
+    Button_Event_et event;
     uint8_t counter;
 }Result_st;
 
@@ -41,7 +41,10 @@ EntityButton_st entityButton0 = {
 };
 
 EntityButton_st entityButton1 = {};
-EntityMCU_st MCU = {};
+EntityMCU_st MCU = {
+    .tick = 0xFFFFFF00, // tick counter overflow is covered by tests
+    .pinState = 0
+};
 Result_st result = {};
 
 
@@ -63,31 +66,32 @@ void Simulate_Release(EntityButton_st* entityButton, EntityMCU_st* mcu, Button_s
 /*--------------------------------------------------------------------------------
                         Library
 --------------------------------------------------------------------------------*/
-void Button_EventCallback(Button_st* button, ButtonEvent_et event, uint8_t counter);
-ButtonState_et Button_GetState(Button_st* button);
-uint32_t Button_GetTick();
+void stubEventCallback(Button_st* button, Button_Event_et event, uint8_t counter);
+Button_State_et stubGetState(Button_st* button);
+uint32_t stubGetTick(void);
 
 Button_st button0 = {0};
-ButtonUserFunctions_st buttonUserFunctions = {
-    .getState = Button_GetState,
-    .getTick = Button_GetTick,    
-    .eventCallback = Button_EventCallback
+Button_Descriptor_st buttonDescriptor = {
+    .getState = stubGetState,
+    .getTick = stubGetTick,
+    .eventCallback = stubEventCallback,
+    .context = NULL
 };
 
-void Button_EventCallback(Button_st* button, ButtonEvent_et event, uint8_t counter){
+void stubEventCallback(Button_st* button, Button_Event_et event, uint8_t counter){
     result.button = button;
     result.event = event;
     result.counter = counter;
 }
 
-ButtonState_et Button_GetState(Button_st* button){
+Button_State_et stubGetState(Button_st* button){
     if(button == &button0){
-        return (ButtonState_et)MCU_GetPinState(&MCU, 0);
+        return (Button_State_et)MCU_GetPinState(&MCU, 0);
     }
     return BUTTON_STATE_RELEASED;
 }
 
-uint32_t Button_GetTick(){
+uint32_t stubGetTick(void){
     return MCU_GetTick(&MCU);
 }
 
@@ -103,18 +107,19 @@ uint32_t Button_GetTick(){
                         Init Tests
 --------------------------------------------------------------------------------*/
 TEST(InitTest, InitTest){
-    Button_Init(&button0, &buttonUserFunctions);
+    Button_Init(&button0, &buttonDescriptor);
 
-    ASSERT_EQ(button0.userFunctions.getTick, Button_GetTick);
-    ASSERT_EQ(button0.userFunctions.getState, Button_GetState);
-    ASSERT_EQ(button0.userFunctions.eventCallback, Button_EventCallback);
+    ASSERT_EQ(button0.descriptor.getTick, stubGetTick);
+    ASSERT_EQ(button0.descriptor.getState, stubGetState);
+    ASSERT_EQ(button0.descriptor.eventCallback, stubEventCallback);
+    ASSERT_EQ(button0.descriptor.context, nullptr);
 }
 
 /*--------------------------------------------------------------------------------
                         Event Tests
 --------------------------------------------------------------------------------*/
 TEST(PressTest, EventTest){
-    Button_Init(&button0, &buttonUserFunctions);
+    Button_Init(&button0, &buttonDescriptor);
 
     Simulate_Init(&entityButton0, &MCU, &button0, BUTTON_DEBOUNCE_TIME_MS + 5);
     Simulate_Press(&entityButton0, &MCU, &button0, BUTTON_DEBOUNCE_TIME_MS + 5);
@@ -125,7 +130,7 @@ TEST(PressTest, EventTest){
 }
 
 TEST(ReleaseTest, EventTest){
-    Button_Init(&button0, &buttonUserFunctions);
+    Button_Init(&button0, &buttonDescriptor);
 
     Simulate_Init(&entityButton0, &MCU, &button0, BUTTON_DEBOUNCE_TIME_MS + 5);
     Simulate_Press(&entityButton0, &MCU, &button0, BUTTON_DEBOUNCE_TIME_MS + 5);
@@ -138,11 +143,11 @@ TEST(ReleaseTest, EventTest){
 
 TEST(ClickTest, EventTest)
 {
-    Button_Init(&button0, &buttonUserFunctions);
+    Button_Init(&button0, &buttonDescriptor);
 
     Simulate_Init(&entityButton0, &MCU, &button0, BUTTON_DEBOUNCE_TIME_MS + 5);
     Simulate_Press(&entityButton0, &MCU, &button0, BUTTON_DEBOUNCE_TIME_MS + 5);
-    Simulate_Release(&entityButton0, &MCU, &button0, BUTTON_EVENT_FINISH_TIMEOUT + 5);
+    Simulate_Release(&entityButton0, &MCU, &button0, BUTTON_EVENT_FINISH_TIMEOUT_MS + 5);
 
     ASSERT_EQ(result.button, &button0);
     ASSERT_EQ(result.event, BUTTON_EVENT_CLICK);
@@ -151,10 +156,10 @@ TEST(ClickTest, EventTest)
 
 TEST(HoldTest, EventTest)
 {
-    Button_Init(&button0, &buttonUserFunctions);
+    Button_Init(&button0, &buttonDescriptor);
 
     Simulate_Init(&entityButton0, &MCU, &button0, BUTTON_DEBOUNCE_TIME_MS + 5);
-    Simulate_Press(&entityButton0, &MCU, &button0, BUTTON_EVENT_FINISH_TIMEOUT + 5);
+    Simulate_Press(&entityButton0, &MCU, &button0, BUTTON_EVENT_FINISH_TIMEOUT_MS + 5);
 
     ASSERT_EQ(result.button, &button0);
     ASSERT_EQ(result.event, BUTTON_EVENT_HOLD);
@@ -166,7 +171,7 @@ TEST(HoldTest, EventTest)
 --------------------------------------------------------------------------------*/
 TEST(MulticlickTest, IntegrationTest)
 {
-    Button_Init(&button0, &buttonUserFunctions);
+    Button_Init(&button0, &buttonDescriptor);
 
     Simulate_Init(&entityButton0, &MCU, &button0, BUTTON_DEBOUNCE_TIME_MS + 5);
 
@@ -179,7 +184,7 @@ TEST(MulticlickTest, IntegrationTest)
             Simulate_Release(&entityButton0, &MCU, &button0, BUTTON_DEBOUNCE_TIME_MS + 5);
         }
 
-        Simulate_Release(&entityButton0, &MCU, &button0, BUTTON_EVENT_FINISH_TIMEOUT + 5);
+        Simulate_Release(&entityButton0, &MCU, &button0, BUTTON_EVENT_FINISH_TIMEOUT_MS + 5);
 
         ASSERT_EQ(result.button, &button0);
         ASSERT_EQ(result.event, BUTTON_EVENT_CLICK);
@@ -189,14 +194,14 @@ TEST(MulticlickTest, IntegrationTest)
 
 TEST(LongHoldTest, IntegrationTest)
 {
-    Button_Init(&button0, &buttonUserFunctions);
+    Button_Init(&button0, &buttonDescriptor);
 
     Simulate_Init(&entityButton0, &MCU, &button0, BUTTON_DEBOUNCE_TIME_MS + 5);
     Simulate_Press(&entityButton0, &MCU, &button0, BUTTON_DEBOUNCE_TIME_MS + 5);
 
     uint8_t holdEvents = 0;
     for(holdEvents = 1; holdEvents < BUTTON_MAX_EVENTS_COUNT; holdEvents++){
-        Simulate_Press(&entityButton0, &MCU, &button0, BUTTON_EVENT_FINISH_TIMEOUT + 1);
+        Simulate_Press(&entityButton0, &MCU, &button0, BUTTON_EVENT_FINISH_TIMEOUT_MS + 1);
 
         ASSERT_EQ(result.button, &button0);
         ASSERT_EQ(result.event, BUTTON_EVENT_HOLD);
@@ -207,7 +212,7 @@ TEST(LongHoldTest, IntegrationTest)
 /*
 TEST(DebounceTest, IntegrationTest)
 {
-    Button_Init(&button0, &buttonUserFunctions);
+    Button_Init(&button0, &buttonDescriptor);
 
     Simulate_Init(&entityButton0, &MCU, &button0, BUTTON_DEBOUNCE_TIME_MS - 1);
 
@@ -222,12 +227,12 @@ TEST(DebounceTest, IntegrationTest)
 
 TEST(HoldBeforeTurnOnTest, IntegrationTest)
 {
-    Button_Init(&button0, &buttonUserFunctions);
+    Button_Init(&button0, &buttonDescriptor);
 
     Simulate_Press(&entityButton0, &MCU, &button0, 1);
     Simulate_Init(&entityButton0, &MCU, &button0, 1);
 
-    Simulate_Press(&entityButton0, &MCU, &button0, BUTTON_EVENT_FINISH_TIMEOUT * 2);
+    Simulate_Press(&entityButton0, &MCU, &button0, BUTTON_EVENT_FINISH_TIMEOUT_MS * 2);
 
     ASSERT_EQ(result.button, &button0);
     ASSERT_EQ(result.event, BUTTON_EVENT_HOLD);
@@ -239,7 +244,7 @@ TEST(HoldBeforeTurnOnTest, IntegrationTest)
 --------------------------------------------------------------------------------*/
 TEST(MaxClicksTest, BoundaryTest)
 {
-    Button_Init(&button0, &buttonUserFunctions);
+    Button_Init(&button0, &buttonDescriptor);
 
     Simulate_Init(&entityButton0, &MCU, &button0, BUTTON_DEBOUNCE_TIME_MS + 5);
 
@@ -250,7 +255,7 @@ TEST(MaxClicksTest, BoundaryTest)
         Simulate_Release(&entityButton0, &MCU, &button0, BUTTON_DEBOUNCE_TIME_MS + 5);
     }
 
-    Simulate_Release(&entityButton0, &MCU, &button0, BUTTON_EVENT_FINISH_TIMEOUT + 5);
+    Simulate_Release(&entityButton0, &MCU, &button0, BUTTON_EVENT_FINISH_TIMEOUT_MS + 5);
 
     ASSERT_EQ(result.button, &button0);
     ASSERT_EQ(result.event, BUTTON_EVENT_CLICK);

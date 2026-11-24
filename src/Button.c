@@ -1,89 +1,131 @@
 #include "Button.h"
 
-static void Debounce(Button_st* button){
-	button->debounceDescriptor.currentState = button->descriptor.getState(button);
+static void    debounce(Button_st* _button, uint32_t _currentTime);
+static void    update(Button_st* _button, uint32_t _currentTime);
+static void    processEvent(Button_st* _button, uint32_t _currentTime);
+static uint8_t isEventActive(Button_st* _button);
+static void    resetEvent(Button_st* _button);
+static void    sendEvent(Button_st* _button, Button_Event_et _event, uint8_t _counter);
 
-	if(button->debounceDescriptor.currentState != button->debounceDescriptor.previousState){
-		button->debounceDescriptor.previousState = button->debounceDescriptor.currentState;
-		button->debounceDescriptor.changeTime = button->descriptor.getTick();
+void Button_Init(Button_st* _button, Button_Descriptor_st* _descriptor){
+	_button->descriptor = *_descriptor;
+
+	resetEvent(_button);
+
+	_button->stateDescriptor.currentState  = BUTTON_STATE_RELEASED;
+	_button->stateDescriptor.previousState = BUTTON_STATE_RELEASED;
+	_button->stateDescriptor.changeTime    = 0;
+
+	_button->debounceDescriptor.currentState  = BUTTON_STATE_RELEASED;
+	_button->debounceDescriptor.previousState = BUTTON_STATE_RELEASED;
+	_button->debounceDescriptor.changeTime    = 0;
+}
+
+void Button_Run(Button_st* _button){
+	uint32_t currentTime = _button->descriptor.getTick();
+
+	debounce(_button, currentTime);
+	update(_button, currentTime);
+	processEvent(_button, currentTime);
+}
+
+void Button_SetEventCallback(Button_st* _button, Button_EventCallback _eventCallback, void* _context){
+	_button->descriptor.eventCallback = _eventCallback;
+	_button->descriptor.context       = _context;
+}
+
+static void debounce(Button_st* _button, uint32_t _currentTime){
+	Button_StateDescriptor_st* debounceDescriptor = &_button->debounceDescriptor;
+	Button_StateDescriptor_st* stateDescriptor    = &_button->stateDescriptor;
+
+	debounceDescriptor->currentState = _button->descriptor.getState(_button);
+
+	if(debounceDescriptor->currentState != debounceDescriptor->previousState){
+		debounceDescriptor->previousState = debounceDescriptor->currentState;
+		debounceDescriptor->changeTime    = _currentTime;
 	}
+	else if((_currentTime - debounceDescriptor->changeTime) >= BUTTON_DEBOUNCE_TIME_MS
+			&& stateDescriptor->currentState != debounceDescriptor->currentState
+			&& stateDescriptor->changeTime != debounceDescriptor->changeTime){
+		stateDescriptor->currentState = debounceDescriptor->currentState;
+		stateDescriptor->changeTime   = debounceDescriptor->changeTime;
 
-	else if(button->debounceDescriptor.currentState == button->debounceDescriptor.previousState
-			&& button->descriptor.getTick() > button->debounceDescriptor.changeTime + BUTTON_DEBOUNCE_TIME_MS
-			&& button->stateDescriptor.currentState != button->debounceDescriptor.currentState
-			&& button->stateDescriptor.changeTime != button->debounceDescriptor.changeTime){
-		button->stateDescriptor.currentState = button->debounceDescriptor.currentState;
-		button->stateDescriptor.changeTime = button->debounceDescriptor.changeTime;
-
-		if(button->stateDescriptor.currentState == BUTTON_STATE_PRESSED){
-			button->descriptor.eventCallback(button, BUTTON_EVENT_PRESS, 1);
+		if(stateDescriptor->currentState == BUTTON_STATE_PRESSED){
+			sendEvent(_button, BUTTON_EVENT_PRESS, 1);
 		}
 		else{
-			button->descriptor.eventCallback(button, BUTTON_EVENT_RELEASE, 1);
+			sendEvent(_button, BUTTON_EVENT_RELEASE, 1);
 		}
 	}
 }
 
-static void Update(Button_st* button){
-	if(button->stateDescriptor.previousState != button->stateDescriptor.currentState){
-		if(button->stateDescriptor.currentState == BUTTON_STATE_PRESSED && button->eventDescriptor.eventFinish == 0){
-			button->eventDescriptor.pressCount++;
+static void update(Button_st* _button, uint32_t _currentTime){
+	Button_EventDescriptor_st* eventDescriptor = &_button->eventDescriptor;
+	Button_StateDescriptor_st* stateDescriptor = &_button->stateDescriptor;
+
+	if(stateDescriptor->previousState != stateDescriptor->currentState){
+		if(stateDescriptor->currentState == BUTTON_STATE_PRESSED && eventDescriptor->eventFinish == 0){
+			eventDescriptor->pressCount++;
 		}
-		else if(button->stateDescriptor.currentState == BUTTON_STATE_RELEASED && button->eventDescriptor.eventFinish == 0){
-			button->eventDescriptor.releaseCount++;
+		else if(stateDescriptor->currentState == BUTTON_STATE_RELEASED && eventDescriptor->eventFinish == 0){
+			eventDescriptor->releaseCount++;
 		}
-			
-		button->stateDescriptor.previousState = button->stateDescriptor.currentState;
+
+		stateDescriptor->previousState = stateDescriptor->currentState;
 	}
 
-	if(button->stateDescriptor.currentState == BUTTON_STATE_RELEASED && button->eventDescriptor.eventFinish == 1){
-		*(uint16_t*)&button->eventDescriptor = 0;
+	if(stateDescriptor->currentState == BUTTON_STATE_RELEASED && eventDescriptor->eventFinish == 1){
+		resetEvent(_button);
 	}
 
-	if((button->descriptor.getTick() > button->stateDescriptor.changeTime + BUTTON_EVENT_FINISH_TIMEOUT) && *(uint16_t*)&button->eventDescriptor != 0){
-		button->eventDescriptor.eventFinish = 1;
-	}
-}
-
-static void Event(Button_st* button){
-	if(button->eventDescriptor.eventFinish){
-		if(button->eventDescriptor.pressCount == button->eventDescriptor.releaseCount
-				&& button->eventDescriptor.pressCount > 0
-				&& button->eventDescriptor.releaseCount > 0
-				&& button->eventDescriptor.eventCount == 0){
-			button->eventDescriptor.eventCount = button->eventDescriptor.pressCount;
-			button->descriptor.eventCallback(button, BUTTON_EVENT_CLICK, button->eventDescriptor.eventCount);
-		}
-		else if(button->eventDescriptor.pressCount > button->eventDescriptor.releaseCount){
-			button->eventDescriptor.eventCount++;
-			button->descriptor.eventCallback(button, BUTTON_EVENT_HOLD, button->eventDescriptor.eventCount);
-			button->stateDescriptor.changeTime = button->descriptor.getTick();
-			button->eventDescriptor.eventFinish = 0;
-		}
-		else{
-			*(uint16_t*)&button->eventDescriptor = 0;
-		}
+	if((_currentTime - stateDescriptor->changeTime) >= BUTTON_EVENT_FINISH_TIMEOUT_MS && isEventActive(_button)){
+		eventDescriptor->eventFinish = 1;
 	}
 }
 
+static void processEvent(Button_st* _button, uint32_t _currentTime){
+	Button_EventDescriptor_st* eventDescriptor = &_button->eventDescriptor;
 
-void Button_Init(Button_st* button, ButtonDescriptor_st* descriptor){
-	button->descriptor.getState = descriptor->getState;
-	button->descriptor.getTick = descriptor->getTick;
-	button->descriptor.eventCallback = descriptor->eventCallback;
-	button->stateDescriptor.currentState = BUTTON_STATE_RELEASED;
-	button->stateDescriptor.previousState = BUTTON_STATE_RELEASED;
-	button->debounceDescriptor.currentState = BUTTON_STATE_RELEASED;
-	button->debounceDescriptor.previousState = BUTTON_STATE_RELEASED;
-	*(uint16_t*)&button->eventDescriptor = 0;
+	if(eventDescriptor->eventFinish == 0){
+		return;
+	}
+
+	if(eventDescriptor->pressCount == eventDescriptor->releaseCount
+			&& eventDescriptor->pressCount > 0
+			&& eventDescriptor->eventCount == 0){
+		eventDescriptor->eventCount = eventDescriptor->pressCount;
+		sendEvent(_button, BUTTON_EVENT_CLICK, eventDescriptor->eventCount);
+	}
+	else if(eventDescriptor->pressCount > eventDescriptor->releaseCount){
+		eventDescriptor->eventCount++;
+		sendEvent(_button, BUTTON_EVENT_HOLD, eventDescriptor->eventCount);
+
+		_button->stateDescriptor.changeTime = _currentTime;
+		eventDescriptor->eventFinish        = 0;
+	}
+	else{
+		resetEvent(_button);
+	}
 }
 
-void Button_SetEventCallback(Button_st* button, ButtonEventCallback eventCallback){
-	button->descriptor.eventCallback = eventCallback;
+static uint8_t isEventActive(Button_st* _button){
+	Button_EventDescriptor_st* eventDescriptor = &_button->eventDescriptor;
+
+	return eventDescriptor->pressCount   != 0
+		|| eventDescriptor->releaseCount != 0
+		|| eventDescriptor->eventFinish  != 0
+		|| eventDescriptor->eventCount   != 0;
 }
 
-void Button_Run(Button_st* button){
-	Debounce(button);
-	Update(button);
-	Event(button);
+static void resetEvent(Button_st* _button){
+	_button->eventDescriptor.pressCount   = 0;
+	_button->eventDescriptor.releaseCount = 0;
+	_button->eventDescriptor.eventFinish  = 0;
+	_button->eventDescriptor.eventCount   = 0;
+}
+
+static void sendEvent(Button_st* _button, Button_Event_et _event, uint8_t _counter){
+	if(_button->descriptor.eventCallback != NULL){
+		_button->descriptor.eventCallback(_button, _event, _counter);
+	}
 }
