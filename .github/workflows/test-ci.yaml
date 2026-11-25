@@ -2,7 +2,7 @@ name: Build and Test
 
 on:
   push:
-    branches: [master, docker-test]
+    branches: [master, tests]
   pull_request:
     branches: [master]
 
@@ -13,9 +13,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-      - name: Build Docker image
-        run: docker build -t button-test .
-
-      - name: Run tests
-        run: docker run --rm button-test
+      - name: Build and run tests
+        run: ./tests/run_test

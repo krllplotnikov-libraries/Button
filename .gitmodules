@@ -1,0 +1,3 @@
+[submodule "tests/MicroTest"]
+	path = tests/MicroTest
+	url = https://github.com/krllplotnikov-libraries/MicroTest.git

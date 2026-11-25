@@ -1,14 +1,28 @@
 #!/bin/bash
+# Builds and runs Button unit tests, then generates an HTML coverage report for src/.
 
-rm -rf build
-mkdir build
-cd build
-cmake ../
-make
-./ButonTest
+set -euo pipefail
 
-cd CMakeFiles/ButonTest.dir/
-lcov --ignore-errors inconsistent --ignore-errors mismatch -c -d . -o testRunner.info
-genhtml -o report testRunner.info
+TESTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BUILD_DIR="$TESTS_DIR/build"
+REPORT_DIR="$BUILD_DIR/coverage"
 
-firefox ./report/index.html
+for tool in lcov genhtml; do
+	if ! command -v "$tool" >/dev/null; then
+		echo "$tool is not installed. Run: sudo apt install lcov" >&2
+		exit 1
+	fi
+done
+
+"$TESTS_DIR/run_test"
+
+lcov --ignore-errors inconsistent --ignore-errors mismatch \
+	--capture --directory "$BUILD_DIR" --output-file "$BUILD_DIR/coverage.info"
+lcov --extract "$BUILD_DIR/coverage.info" '*/src/Button.c' --output-file "$BUILD_DIR/coverage.info"
+genhtml "$BUILD_DIR/coverage.info" --output-directory "$REPORT_DIR"
+
+echo "Coverage report: $REPORT_DIR/index.html"
+
+if [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]] && command -v xdg-open >/dev/null; then
+	xdg-open "$REPORT_DIR/index.html" >/dev/null 2>&1 &
+fi

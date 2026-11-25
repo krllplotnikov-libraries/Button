@@ -281,11 +281,12 @@ ____
 
 ## Запуск тестов
 
-```sh
-# Если не установлен Docker, установите его:
-sudo apt update && sudo apt install docker.io
+Тесты написаны на [MicroTest](https://github.com/krllplotnikov-libraries/MicroTest), который подключён как git submodule. Нужны `gcc` и `cmake`.
 
-# Создайте образ и запустите контейнер с тестами:
-docker build -t button_test .
-docker run --rm button_test
+```sh
+# Загрузите сабмодуль MicroTest (если репозиторий клонирован без --recursive):
+git submodule update --init --recursive
+
+# Соберите и запустите тесты:
+./tests/run_test
 ```
