@@ -13,8 +13,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
+
+      - name: Install MicroTest
+        run: |
+          git clone --depth 1 https://github.com/krllplotnikov-libraries/MicroTest.git "$RUNNER_TEMP/MicroTest"
+          cd "$RUNNER_TEMP/MicroTest" && sudo ./install.sh
 
       - name: Build and run tests
         run: ./tests/run_test

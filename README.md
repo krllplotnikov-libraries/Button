@@ -281,12 +281,25 @@ ____
 
 ## Запуск тестов
 
-Тесты написаны на [MicroTest](https://github.com/krllplotnikov-libraries/MicroTest), который подключён как git submodule. Нужны `gcc` и `cmake`.
+Тесты написаны на [MicroTest](https://github.com/krllplotnikov-libraries/MicroTest) и собираются с библиотекой, установленной в систему. Нужны `gcc` и `cmake`.
 
+1) Установите MicroTest (один раз):
 ```sh
-# Загрузите сабмодуль MicroTest (если репозиторий клонирован без --recursive):
-git submodule update --init --recursive
+git clone https://github.com/krllplotnikov-libraries/MicroTest.git
+cd MicroTest && sudo ./install.sh    # в /usr/local; другой каталог: ./install.sh ~/.local
+```
 
-# Соберите и запустите тесты:
+2) Соберите и запустите тесты:
+```sh
 ./tests/run_test
+```
+
+Если MicroTest установлен в нестандартный каталог, передайте его в CMake:
+```sh
+./tests/run_test -DCMAKE_PREFIX_PATH=$HOME/.local
+```
+
+Отчёт о покрытии кода (нужен `lcov`):
+```sh
+./tests/run_coverage
 ```

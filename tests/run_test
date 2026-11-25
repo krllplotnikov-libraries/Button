@@ -1,19 +1,15 @@
 #!/bin/bash
 # Builds and runs Button unit tests.
 # Exit code is non-zero if the build fails or any test fails.
+# Extra arguments are passed to CMake configure, e.g. -DCMAKE_PREFIX_PATH=$HOME/.local
 
 set -euo pipefail
 
 TESTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="$TESTS_DIR/build"
 
-if [[ ! -f "$TESTS_DIR/MicroTest/src/MicroTest.h" ]]; then
-	echo "MicroTest submodule is missing. Run: git submodule update --init --recursive" >&2
-	exit 1
-fi
-
 rm -rf "$BUILD_DIR"
-cmake -S "$TESTS_DIR" -B "$BUILD_DIR"
+cmake -S "$TESTS_DIR" -B "$BUILD_DIR" "$@"
 cmake --build "$BUILD_DIR"
 
 "$BUILD_DIR/TestButton"
